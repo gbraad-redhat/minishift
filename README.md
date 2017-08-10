@@ -3,6 +3,9 @@ Gerard Braad's Minishift fork
 
 This is my workspace
 
+  * [GitHub](https://github.com/gbraad/minishift)
+  * [GitLab](https://gitlab.com/gbraad/minishift)
+
 
 Authors
 -------

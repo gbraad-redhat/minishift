@@ -58,6 +58,24 @@ ExecStart=/usr/bin/dockerd-current -H tcp://0.0.0.0:{{.DockerPort}} -H unix:///v
            {{ range .EngineOptions.Labels }}--label {{.}} {{ end }}{{ range .EngineOptions.InsecureRegistry }}--insecure-registry {{.}} {{ end }}{{ range .EngineOptions.RegistryMirror }}--registry-mirror {{.}} {{ end }}{{ range .EngineOptions.ArbitraryFlags }}--{{.}} {{ end }}
 Environment={{range .EngineOptions.Env}}{{ printf "%q" . }} {{end}}
 `
+
+	engineConfigTemplateFedora = `[Service]
+ExecStart=
+ExecStart=/usr/bin/dockerd-current -H tcp://0.0.0.0:{{.DockerPort}} -H unix:///var/run/docker.sock \
+           --selinux-enabled \
+           --log-driver=journald \
+           --signature-verification=false \
+           --add-runtime oci=/usr/libexec/docker/docker-runc-current \
+           --default-runtime=oci \
+           --exec-opt native.cgroupdriver=systemd \
+           --userland-proxy-path=/usr/libexec/docker/docker-proxy-current \
+           --containerd /run/containerd.sock \
+           --init-path=/usr/libexec/docker/docker-init-current \
+           --storage-driver {{.EngineOptions.StorageDriver}} --tlsverify --tlscacert {{.AuthOptions.CaCertRemotePath}} \
+           --tlscert {{.AuthOptions.ServerCertRemotePath}} --tlskey {{.AuthOptions.ServerKeyRemotePath}} \
+           {{ range .EngineOptions.Labels }}--label {{.}} {{ end }}{{ range .EngineOptions.InsecureRegistry }}--insecure-registry {{.}} {{ end }}{{ range .EngineOptions.RegistryMirror }}--registry-mirror {{.}} {{ end }}{{ range .EngineOptions.ArbitraryFlags }}--{{.}} {{ end }}
+Environment={{range .EngineOptions.Env}}{{ printf "%q" . }} {{end}}
+`
 )
 
 func makeDockerOptionsDir(p *MinishiftProvisioner) error {

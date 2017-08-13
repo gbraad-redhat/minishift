@@ -72,12 +72,24 @@ func (provisioner *MinishiftProvisioner) SetHostname(hostname string) error {
 	return nil
 }
 
-func (provisioner *MinishiftProvisioner) GetRedhatRelease() bool {
+func (provisioner *MinishiftProvisioner) getRelease(osName string) bool {
 	OsRelease, _ := provisioner.GetOsReleaseInfo()
-	if strings.Contains(OsRelease.Name, "Red Hat Enterprise") {
+	if strings.Contains(OsRelease.Name, osName) {
 		return true
 	}
 	return false
+}
+
+func (provisioner *MinishiftProvisioner) IsRedHat() bool {
+	return provisioner.getRelease("Red Hat Enterprise")
+}
+
+func (provisioner *MinishiftProvisioner) IsCentOS() bool {
+	return provisioner.getRelease("CentOS")
+}
+
+func (provisioner *MinishiftProvisioner) IsFedora() bool {
+	return provisioner.getRelease("Fedora")
 }
 
 func (provisioner *MinishiftProvisioner) Package(name string, action pkgaction.PackageAction) error {
@@ -148,10 +160,14 @@ func (provisioner *MinishiftProvisioner) GenerateDockerOptions(dockerPort int) (
 	// systemd / redhat will not load options if they are on newlines
 	// instead, it just continues with a different set of options; yeah...
 	engineConfigTemplate := ""
-	if provisioner.GetRedhatRelease() {
+	if provisioner.IsRedHat() {
 		engineConfigTemplate = engineConfigTemplateRHEL
-	} else {
+	} else if provisioner.IsCentOS() {
 		engineConfigTemplate = engineConfigTemplateCentOS
+	} else if provisioner.IsFedora() {
+		engineConfigTemplate = engineConfigTemplateFedora
+	} else {
+		return nil, errors.New("Unsupported platform")
 	}
 
 	t, err := template.New("engineConfig").Parse(engineConfigTemplate)

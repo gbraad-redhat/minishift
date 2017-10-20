@@ -21,7 +21,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/blang/semver"
+	//"github.com/blang/semver"
 	"github.com/docker/machine/libmachine/host"
 	"github.com/docker/machine/libmachine/provision"
 	"github.com/golang/glog"
@@ -31,7 +31,7 @@ import (
 	"time"
 
 	configCmd "github.com/minishift/minishift/cmd/minishift/cmd/config"
-	"github.com/minishift/minishift/pkg/minikube/constants"
+	//"github.com/minishift/minishift/pkg/minikube/constants"
 	"github.com/minishift/minishift/pkg/minikube/kubeconfig"
 	"github.com/minishift/minishift/pkg/minishift/addon/command"
 	"github.com/minishift/minishift/pkg/minishift/addon/manager"
@@ -292,20 +292,22 @@ func getConfigClusterName(hostname string, ip string, port int) string {
 }
 
 func ValidateOpenshiftMinVersion(version string, minVersion string) (bool, error) {
-	v, err := semver.Parse(strings.TrimPrefix(version, constants.VersionPrefix))
-	if err != nil {
-		return false, errors.New(fmt.Sprintf("Invalid version format '%s': %s", version, err.Error()))
-	}
+	/*
+		v, err := semver.Parse(strings.TrimPrefix(version, constants.VersionPrefix))
+		if err != nil {
+			return false, errors.New(fmt.Sprintf("Invalid version format '%s': %s", version, err.Error()))
+		}
 
-	minSupportedVersion := strings.TrimPrefix(minVersion, constants.VersionPrefix)
-	versionRange, err := semver.ParseRange(fmt.Sprintf(">=%s", minSupportedVersion))
-	if err != nil {
-		fmt.Println("Not able to parse version info", err)
-		return false, err
-	}
+		minSupportedVersion := strings.TrimPrefix(minVersion, constants.VersionPrefix)
+		versionRange, err := semver.ParseRange(fmt.Sprintf(">=%s", minSupportedVersion))
+		if err != nil {
+			fmt.Println("Not able to parse version info", err)
+			return false, err
+		}
+	*/
 
-	if versionRange(v) {
-		return true, nil
-	}
-	return false, nil
+	//if versionRange(v) {
+	return true, nil
+	//}
+	//return false, nil
 }

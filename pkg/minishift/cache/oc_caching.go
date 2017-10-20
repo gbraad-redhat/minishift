@@ -18,12 +18,16 @@ package cache
 
 import (
 	"github.com/minishift/minishift/pkg/minikube/constants"
-	"github.com/minishift/minishift/pkg/util/github"
+	//"github.com/minishift/minishift/pkg/util/github"
 	minishiftos "github.com/minishift/minishift/pkg/util/os"
-	"github.com/pkg/errors"
+	//"github.com/pkg/errors"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	ocpdownload "github.com/minishift/minishift/pkg/util/ocp"
 )
 
 const OC_CACHE_DIR = "oc"
@@ -58,10 +62,26 @@ func (oc *Oc) isCached() bool {
 
 // cacheOc downloads and caches the oc binary into the minishift directory
 func (oc *Oc) cacheOc() error {
+
 	if !oc.isCached() {
-		if err := github.DownloadOpenShiftReleaseBinary(github.OC, minishiftos.CurrentOS(), oc.OpenShiftVersion, oc.GetCacheFilepath()); err != nil {
-			return errors.Wrapf(err, "Error attempting to download and cache %s", github.OC.String())
+		if err := ocpdownload.DownloadOcpVersionFromMirror(
+			oc.OpenShiftVersion,
+			minishiftos.CurrentOS(),
+			oc.GetCacheFilepath()); err != nil {
+			return errors.New(fmt.Sprintf("Error attempting to download and cache %s", err.Error()))
 		}
 	}
+
+	/*
+		if !oc.isCached() {
+			if err := github.DownloadOpenShiftReleaseBinary(
+				github.OC, minishiftos.CurrentOS(),
+				oc.OpenShiftVersion,
+				oc.GetCacheFilepath()); err != nil {
+				return errors.Wrapf(err, "Error attempting to download and cache %s", github.OC.String())
+			}
+		}
+	*/
+
 	return nil
 }

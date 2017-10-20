@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/minishift/minishift/pkg/minikube/constants"
-	"github.com/minishift/minishift/pkg/version"
+	//"github.com/minishift/minishift/pkg/version"
 )
 
 func TestPrintUpStreamVersions(t *testing.T) {
@@ -40,7 +40,7 @@ func TestPrintUpStreamVersions(t *testing.T) {
 	defer f.Close()
 
 	os.Stdout = f
-	defaultVersion := version.GetOpenShiftVersion()
+	defaultVersion := "v1.4.1" //version.GetOpenShiftVersion()
 	err = PrintUpStreamVersions(f, constants.MinOpenshiftSupportedVersion, defaultVersion)
 	if err != nil {
 		t.Fatal(err)

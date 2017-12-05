@@ -22,8 +22,8 @@ import (
 	"github.com/docker/machine/libmachine"
 	"github.com/spf13/cobra"
 
-	minishiftNetwork "github.com/minishift/minishift/pkg/minishift/network"
 	"github.com/minishift/minishift/pkg/minikube/constants"
+	minishiftNetwork "github.com/minishift/minishift/pkg/minishift/network"
 	"github.com/minishift/minishift/pkg/util/os/atexit"
 )
 
@@ -40,16 +40,16 @@ var ipCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		api := libmachine.NewClient(constants.Minipath, constants.MakeMiniPath("certs"))
 		defer api.Close()
-		
+
 		if configureAsStatic && configureAsDynamic {
 			atexit.ExitWithMessage(1, "Invalid options specified")
 		}
-		
+
 		host, err := api.Load(constants.MachineName)
 		if err != nil {
 			atexit.ExitWithMessage(1, fmt.Sprintf("Error getting IP: %s", err.Error()))
 		}
-		
+
 		if configureAsDynamic {
 			minishiftNetwork.ConfigureDynamicAssignment(host.Driver)
 		} else if configureAsStatic {

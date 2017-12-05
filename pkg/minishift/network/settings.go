@@ -17,18 +17,19 @@ limitations under the License.
 package network
 
 import (
-	"encoding/base64"
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"text/template"
 
 	"github.com/docker/machine/libmachine/drivers"
+	minishiftConfig "github.com/minishift/minishift/pkg/minishift/config"
 	"github.com/minishift/minishift/pkg/util/os/atexit"
 )
 
 const (
-	configureIPAddressMessage      = "-- Attempting to set network settings ..."
-	configureIPAddressFailure      = "FAIL\n   not supported on this platform or hypervisor"
+	configureIPAddressMessage                   = "-- Attempting to set network settings ..."
+	configureIPAddressFailure                   = "FAIL\n   not supported on this platform or hypervisor"
 	configureNetworkScriptStaticAddressTemplate = `DEVICE={{.Device}}
 IPADDR={{.IPAddress}}
 NETMASK={{.Netmask}}
@@ -60,28 +61,53 @@ func GetIP(driver drivers.Driver) (string, error) {
 	return ip, nil
 }
 
+func checkSupportForAddressAssignment() bool {
+	if minishiftConfig.InstanceConfig.IsRHELBased &&
+		minishiftConfig.InstanceConfig.SupportsNetworkAssignment {
+		return true
+	} else {
+		atexit.ExitWithMessage(1, "The Minishift VM does not support network assignment")
+	}
+	return false
+}
+
 func ConfigureDynamicAssignment(driver drivers.Driver) {
-	fmt.Println("Dynamic assignment of IP address")
-	
+	if checkSupportForAddressAssignment() {
+		fmt.Println("Dynamic assignment of IP address")
+	}
+
 	networkSettingsEth0 := NetworkSettings{
-		Device:    "eth0",
-		UseDHCP:   true,
+		Device:  "eth0",
+		UseDHCP: true,
 	}
 	WriteNetworkSettingsToHost(driver, networkSettingsEth0)
-	
+
 	networkSettingsEth1 := NetworkSettings{
-		Device:    "eth1",
-		UseDHCP:   true,
+		Device:  "eth1",
+		UseDHCP: true,
 	}
 	WriteNetworkSettingsToHost(driver, networkSettingsEth1)
-	
+
 	fmt.Println("Please restart the instance using 'stop' and 'start'")
 }
 
 func ConfigureStaticAssignment(driver drivers.Driver) {
-	fmt.Println("Static assignment of IP address")
-	
-	
+	if checkSupportForAddressAssignment() {
+		fmt.Println("Static assignment of IP address")
+	}
+
+	if minishiftConfig.IsKVM() {
+		fmt.Println("kvm")
+	}
+	if minishiftConfig.IsHyperV() {
+		fmt.Println("hyperv")
+	}
+	if minishiftConfig.IsXhyve() {
+		fmt.Println("xhyve")
+	}
+	if minishiftConfig.IsVirtualBox() {
+		fmt.Println("vbox")
+	}
 }
 
 func printNetworkSettings(networkSettings NetworkSettings) {
@@ -115,7 +141,6 @@ func fillNetworkSettingsScript(networkSettings NetworkSettings) string {
 	return result.String()
 }
 
-
 func GetNetworkSettingsForHost(driver drivers.Driver) NetworkSettings {
 	instanceip, err := driver.GetIP()
 
@@ -124,35 +149,35 @@ func GetNetworkSettingsForHost(driver drivers.Driver) NetworkSettings {
 	}
 
 	networkSettings := NetworkSettings{
-		Device:    "eth0",  // based on hypervisor
+		Device:    "eth0", // based on hypervisor
 		IPAddress: instanceip,
 		Netmask:   "24",
-		Gateway:   "10.0.15.1",  // based on hypervisor
+		Gateway:   "10.0.15.1", // based on hypervisor
 		DNS1:      "10.0.15.3",
 	}
-	
+
 	return networkSettings
 }
 
 func WriteNetworkSettingsToHost(driver drivers.Driver, networkSettings NetworkSettings) bool {
-	networkScript := fillNetworkSettingsScript(networkSettings)		// perhaps move this to the struct as a ToString()
+	networkScript := fillNetworkSettingsScript(networkSettings) // perhaps move this to the struct as a ToString()
 	encodedScript := base64.StdEncoding.EncodeToString([]byte(networkScript))
 
 	cmd := fmt.Sprintf(
 		"echo %s | base64 --decode | sudo tee /var/lib/minishift/networking-%s > /dev/null",
 		encodedScript,
 		networkSettings.Device)
-	
+
 	if _, err := drivers.RunSSHCommandFromDriver(driver, cmd); err != nil {
 		fmt.Println("FAIL")
 		return false //fmt.Errorf("Error occured while writing network configuration", err)
 	} else {
 		fmt.Println("OK")
 	}
-	
+
 	return true
 }
 
 func parseResolveConf() {
-	
+
 }

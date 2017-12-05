@@ -14,12 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package network
+package config
 
-import (
-	"fmt"
-)
+func checkDriver(driverName string) bool {
+	if InstanceConfig.VMDriver == driverName {
+		return true
+	}
+	return false
+}
 
-func ConfigureNetworking(machineName string, networkSettings NetworkSettings) {
-	fmt.Println(configureIPAddressMessage, configureIPAddressFailure)
+func IsVirtualBox() bool {
+	return checkDriver("virtualbox")
+}
+
+func IsHyperV() bool {
+	return checkDriver("hyperv")
+}
+
+func IsXhyve() bool {
+	return checkDriver("xhyve")
+}
+
+func IsKVM() bool {
+	return checkDriver("kvm")
 }

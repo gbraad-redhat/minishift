@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"text/template"
 
 	"github.com/docker/machine/libmachine/drivers"
@@ -40,6 +41,9 @@ DNS2={{.DNS2}}
 	configureNetworkScriptDynamicAddressTemplate = `DEVICE={{.Device}}
 USEDHCP={{.UseDHCP}}
 `
+	configureNetworkScriptDisabledAddressTemplate = `DEVICE={{.Device}}
+DISABLED={{.Disabled}}
+`
 )
 
 type NetworkSettings struct {
@@ -50,6 +54,7 @@ type NetworkSettings struct {
 	DNS1      string
 	DNS2      string
 	UseDHCP   bool
+	Disabled  bool
 }
 
 // This will return the address as used by libmachine or assigned by us
@@ -96,18 +101,28 @@ func ConfigureStaticAssignment(driver drivers.Driver) {
 		fmt.Println("Static assignment of IP address")
 	}
 
-	if minishiftConfig.IsKVM() {
-		fmt.Println("kvm")
+	networkSettings := GetNetworkSettingsForHost(driver)
+
+	if minishiftConfig.IsVirtualBox() || minishiftConfig.IsKVM() {
+		fmt.Println("vbox or kvm")
+		dhcpNetworkSettings := NetworkSettings{
+			Device:  "eth0",
+			UseDHCP: true,
+		}
+		WriteNetworkSettingsToHost(driver, networkSettings)
+		WriteNetworkSettingsToHost(driver, dhcpNetworkSettings)
 	}
-	if minishiftConfig.IsHyperV() {
-		fmt.Println("hyperv")
+	if minishiftConfig.IsHyperV() || minishiftConfig.IsXhyve() {
+		fmt.Println("hyperv or xhyve")
+		disabledNetworkSettings := NetworkSettings{
+			Device:   "eth1",
+			Disabled: true,
+		}
+		WriteNetworkSettingsToHost(driver, networkSettings)
+		WriteNetworkSettingsToHost(driver, disabledNetworkSettings)
 	}
-	if minishiftConfig.IsXhyve() {
-		fmt.Println("xhyve")
-	}
-	if minishiftConfig.IsVirtualBox() {
-		fmt.Println("vbox")
-	}
+
+	printNetworkSettings(networkSettings)
 }
 
 func printNetworkSettings(networkSettings NetworkSettings) {
@@ -127,7 +142,9 @@ func fillNetworkSettingsScript(networkSettings NetworkSettings) string {
 
 	tmpl := template.New("networkScript")
 
-	if networkSettings.UseDHCP {
+	if networkSettings.Disabled {
+		tmpl.Parse(configureNetworkScriptDisabledAddressTemplate)
+	} else if networkSettings.UseDHCP {
 		tmpl.Parse(configureNetworkScriptDynamicAddressTemplate)
 	} else {
 		tmpl.Parse(configureNetworkScriptStaticAddressTemplate)
@@ -135,7 +152,7 @@ func fillNetworkSettingsScript(networkSettings NetworkSettings) string {
 
 	err := tmpl.Execute(result, networkSettings)
 	if err != nil {
-		atexit.ExitWithMessage(1, fmt.Sprintf("Error executing network script template:: %s", err.Error()))
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error executing network script template: %s", err.Error()))
 	}
 
 	return result.String()
@@ -143,17 +160,35 @@ func fillNetworkSettingsScript(networkSettings NetworkSettings) string {
 
 func GetNetworkSettingsForHost(driver drivers.Driver) NetworkSettings {
 	instanceip, err := driver.GetIP()
-
 	if err != nil {
-		fmt.Println("Err")
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting IP address: %s", err.Error()))
+	}
+
+	device, err := drivers.RunSSHCommandFromDriver(driver, fmt.Sprintf("ip a |grep -i '%s' | awk '{print $NF}' | tr -d '\n'", instanceip))
+	if err != nil {
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting device: %s", err.Error()))
+	}
+
+	resolveInfo, err := drivers.RunSSHCommandFromDriver(driver, "cat /etc/resolv.conf |grep -i '^nameserver' | cut -d ' ' -f2 | tr '\n' ' '")
+	if err != nil {
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting nameserver: %s", err.Error()))
+	}
+	nameservers := strings.Split(strings.TrimSpace(resolveInfo), " ")
+
+	gateway, err := drivers.RunSSHCommandFromDriver(driver, "route -n | grep 'UG[ \t]' | awk '{print $2}' | tr -d '\n'")
+	if err != nil {
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting gateway: %s", err.Error()))
 	}
 
 	networkSettings := NetworkSettings{
-		Device:    "eth0", // based on hypervisor
+		Device:    device,
 		IPAddress: instanceip,
 		Netmask:   "24",
-		Gateway:   "10.0.15.1", // based on hypervisor
-		DNS1:      "10.0.15.3",
+		Gateway:   gateway,
+		DNS1:      nameservers[0],
+	}
+	if len(nameservers) > 1 {
+		networkSettings.DNS2 = nameservers[1]
 	}
 
 	return networkSettings
@@ -176,8 +211,4 @@ func WriteNetworkSettingsToHost(driver drivers.Driver, networkSettings NetworkSe
 	}
 
 	return true
-}
-
-func parseResolveConf() {
-
 }

@@ -566,6 +566,8 @@ func CreateSSHShell(api libmachine.API, args []string) error {
 		return fmt.Errorf("Error: Cannot run ssh command: Host %q is not running", constants.MachineName)
 	}
 
+	// might need to connect to IP
+
 	client, err := host.CreateSSHClient()
 	if err != nil {
 		return err

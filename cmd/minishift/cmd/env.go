@@ -31,6 +31,7 @@ import (
 	"github.com/docker/machine/libmachine"
 	"github.com/minishift/minishift/cmd/minishift/cmd/util"
 	"github.com/minishift/minishift/pkg/minikube/cluster"
+	minishiftNetwork "github.com/minishift/minishift/pkg/minishift/network"
 	"github.com/minishift/minishift/pkg/util/os/atexit"
 	"github.com/minishift/minishift/pkg/util/shell"
 	"github.com/spf13/cobra"
@@ -83,7 +84,7 @@ func getConfigSet(api libmachine.API, forceShell string, noProxy bool) (*DockerS
 			return nil, fmt.Errorf("Error getting IP: %s", err)
 		}
 
-		ip, err := host.Driver.GetIP()
+		ip, err := minishiftNetwork.GetIP(host.Driver)
 		if err != nil {
 			return nil, fmt.Errorf("Error getting host IP: %s", err)
 		}

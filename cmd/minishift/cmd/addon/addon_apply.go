@@ -25,6 +25,7 @@ import (
 	"github.com/minishift/minishift/pkg/minikube/constants"
 	"github.com/minishift/minishift/pkg/minishift/clusterup"
 	minishiftConfig "github.com/minishift/minishift/pkg/minishift/config"
+	minishiftNetwork "github.com/minishift/minishift/pkg/minishift/network"
 	"github.com/minishift/minishift/pkg/minishift/oc"
 	"github.com/minishift/minishift/pkg/util/os/atexit"
 	"github.com/spf13/cobra"
@@ -70,7 +71,7 @@ func runApplyAddon(cmd *cobra.Command, args []string) {
 
 	util.ExitIfNotRunning(host.Driver, constants.MachineName)
 
-	ip, err := host.Driver.GetIP()
+	ip, err := minishiftNetwork.GetIP(host.Driver)
 	if err != nil {
 		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting the IP address: %s", err.Error()))
 	}

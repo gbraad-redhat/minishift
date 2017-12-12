@@ -24,6 +24,7 @@ import (
 	"github.com/docker/machine/libmachine"
 	"github.com/minishift/minishift/cmd/minishift/cmd/util"
 	"github.com/minishift/minishift/pkg/minikube/constants"
+	minishiftNetwork "github.com/minishift/minishift/pkg/minishift/network"
 	"github.com/minishift/minishift/pkg/minishift/openshift"
 	"github.com/minishift/minishift/pkg/util/os/atexit"
 	"github.com/olekukonko/tablewriter"
@@ -61,7 +62,7 @@ var serviceCmd = &cobra.Command{
 
 		util.ExitIfNotRunning(host.Driver, constants.MachineName)
 
-		ip, err := host.Driver.GetIP()
+		ip, err := minishiftNetwork.GetIP(host.Driver)
 		if err != nil {
 			atexit.ExitWithMessage(1, fmt.Sprintf("Error getting IP: %s", err.Error()))
 		}

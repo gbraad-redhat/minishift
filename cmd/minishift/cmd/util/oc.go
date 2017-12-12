@@ -31,6 +31,7 @@ import (
 	"github.com/minishift/minishift/pkg/minishift/cache"
 	minishiftConfig "github.com/minishift/minishift/pkg/minishift/config"
 	minishiftConstants "github.com/minishift/minishift/pkg/minishift/constants"
+	minishiftNetwork "github.com/minishift/minishift/pkg/minishift/network"
 	"github.com/minishift/minishift/pkg/minishift/oc"
 	profileActions "github.com/minishift/minishift/pkg/minishift/profile"
 	"github.com/minishift/minishift/pkg/util/os/atexit"
@@ -74,7 +75,7 @@ func SetOcContext(profileName string) error {
 		return errors.New(fmt.Sprintf("Profile '%s' VM is not running", profileName))
 	}
 
-	ip, err := host.Driver.GetIP()
+	ip, err := minishiftNetwork.GetIP(host.Driver)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Error getting the IP address: '%s'", err.Error()))
 	}

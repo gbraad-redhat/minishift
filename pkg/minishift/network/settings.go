@@ -32,6 +32,7 @@ const (
 	configureIPAddressMessage                   = "-- Set the following network settings to VM ..."
 	configureRestartNeededMessage               = "Network settings get applied to the instance on restart"
 	configureIPAddressFailure                   = "FAIL\n   not supported on this platform or hypervisor"
+	configureIPAddressAlreadySetFailure         = "Static IP address has already been assigned"
 	configureNetworkNotSupportedMessage         = "The Minishift VM does not support network assignment"
 	configureNetworkScriptStaticAddressTemplate = `DEVICE={{.Device}}
 IPADDR={{.IPAddress}}
@@ -59,11 +60,18 @@ type NetworkSettings struct {
 	Disabled  bool
 }
 
+func HasStaticIP() bool {
+	return minishiftConfig.InstanceConfig.IPAddress != ""
+}
+
+func GetStaticIP() string {
+	return minishiftConfig.InstanceConfig.IPAddress
+}
+
 // This will return the address as used by libmachine or assigned by us
 func GetIP(driver drivers.Driver) (string, error) {
-	configuredIP := minishiftConfig.InstanceConfig.IPAddress
-	if configuredIP != "" {
-		return configuredIP, nil
+	if HasStaticIP() {
+		return GetStaticIP(), nil
 	}
 
 	ip, err := driver.GetIP()
@@ -100,10 +108,16 @@ func ConfigureDynamicAssignment(driver drivers.Driver) {
 	}
 	WriteNetworkSettingsToHost(driver, networkSettingsEth1)
 
+	minishiftConfig.InstanceConfig.IPAddress = ""
+	minishiftConfig.InstanceConfig.Write()
+
 	fmt.Println(configureRestartNeededMessage)
 }
 
 func ConfigureStaticAssignment(driver drivers.Driver) {
+	if HasStaticIP() {
+		atexit.ExitWithMessage(1, configureIPAddressAlreadySetFailure)
+	}
 	if checkSupportForAddressAssignment() {
 		fmt.Println("Static assignment of IP address")
 	}

@@ -29,8 +29,10 @@ import (
 )
 
 const (
-	configureIPAddressMessage                   = "-- Attempting to set network settings ..."
+	configureIPAddressMessage                   = "-- Set the following network settings to VM ..."
+	configureRestartNeededMessage               = "Network settings get applied to the instance on restart"
 	configureIPAddressFailure                   = "FAIL\n   not supported on this platform or hypervisor"
+	configureNetworkNotSupportedMessage         = "The Minishift VM does not support network assignment"
 	configureNetworkScriptStaticAddressTemplate = `DEVICE={{.Device}}
 IPADDR={{.IPAddress}}
 NETMASK={{.Netmask}}
@@ -59,6 +61,11 @@ type NetworkSettings struct {
 
 // This will return the address as used by libmachine or assigned by us
 func GetIP(driver drivers.Driver) (string, error) {
+	configuredIP := minishiftConfig.InstanceConfig.IPAddress
+	if configuredIP != "" {
+		return configuredIP, nil
+	}
+
 	ip, err := driver.GetIP()
 	if err != nil {
 		return "", err
@@ -71,7 +78,7 @@ func checkSupportForAddressAssignment() bool {
 		minishiftConfig.InstanceConfig.SupportsNetworkAssignment {
 		return true
 	} else {
-		atexit.ExitWithMessage(1, "The Minishift VM does not support network assignment")
+		atexit.ExitWithMessage(1, configureNetworkNotSupportedMessage)
 	}
 	return false
 }
@@ -93,7 +100,7 @@ func ConfigureDynamicAssignment(driver drivers.Driver) {
 	}
 	WriteNetworkSettingsToHost(driver, networkSettingsEth1)
 
-	fmt.Println("Please restart the instance using 'stop' and 'start'")
+	fmt.Println(configureRestartNeededMessage)
 }
 
 func ConfigureStaticAssignment(driver drivers.Driver) {
@@ -103,6 +110,9 @@ func ConfigureStaticAssignment(driver drivers.Driver) {
 
 	networkSettings := GetNetworkSettingsForHost(driver)
 
+	// VirtualBox and KVM rely on twon interfaces
+	// eth0 is used for host communication
+	// eth1 is used for the external communication
 	if minishiftConfig.IsVirtualBox() || minishiftConfig.IsKVM() {
 		fmt.Println("vbox or kvm")
 		dhcpNetworkSettings := NetworkSettings{
@@ -112,6 +122,10 @@ func ConfigureStaticAssignment(driver drivers.Driver) {
 		WriteNetworkSettingsToHost(driver, networkSettings)
 		WriteNetworkSettingsToHost(driver, dhcpNetworkSettings)
 	}
+
+	// HyperV and Xhyve rely on a single interface
+	// eth0 is used for hpst and external communication
+	// eth1 is disabled
 	if minishiftConfig.IsHyperV() || minishiftConfig.IsXhyve() {
 		fmt.Println("hyperv or xhyve")
 		disabledNetworkSettings := NetworkSettings{
@@ -123,6 +137,11 @@ func ConfigureStaticAssignment(driver drivers.Driver) {
 	}
 
 	printNetworkSettings(networkSettings)
+
+	minishiftConfig.InstanceConfig.IPAddress = networkSettings.IPAddress
+	minishiftConfig.InstanceConfig.Write()
+
+	fmt.Println(configureRestartNeededMessage)
 }
 
 func printNetworkSettings(networkSettings NetworkSettings) {
@@ -163,11 +182,21 @@ func GetNetworkSettingsForHost(driver drivers.Driver) NetworkSettings {
 	if err != nil {
 		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting IP address: %s", err.Error()))
 	}
+	if instanceip == "" {
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting IP address: %s", "No address available"))
+	}
 
 	device, err := drivers.RunSSHCommandFromDriver(driver, fmt.Sprintf("ip a |grep -i '%s' | awk '{print $NF}' | tr -d '\n'", instanceip))
 	if err != nil {
 		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting device: %s", err.Error()))
 	}
+
+	addressInfo, err := drivers.RunSSHCommandFromDriver(driver, fmt.Sprintf("ip -o -f inet addr show %s | head -n1 | awk '/scope global/ {print $4}'", device))
+	if err != nil {
+		atexit.ExitWithMessage(1, fmt.Sprintf("Error getting netmask: %s", err.Error()))
+	}
+	ipAddress := strings.Split(strings.TrimSpace(addressInfo), "/")[0]
+	netmask := strings.Split(strings.TrimSpace(addressInfo), "/")[1]
 
 	resolveInfo, err := drivers.RunSSHCommandFromDriver(driver, "cat /etc/resolv.conf |grep -i '^nameserver' | cut -d ' ' -f2 | tr '\n' ' '")
 	if err != nil {
@@ -182,8 +211,8 @@ func GetNetworkSettingsForHost(driver drivers.Driver) NetworkSettings {
 
 	networkSettings := NetworkSettings{
 		Device:    device,
-		IPAddress: instanceip,
-		Netmask:   "24",
+		IPAddress: ipAddress, // ~= instanceip
+		Netmask:   netmask,
 		Gateway:   gateway,
 		DNS1:      nameservers[0],
 	}

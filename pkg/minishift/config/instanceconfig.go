@@ -31,6 +31,7 @@ type InstanceConfigType struct {
 	IsRHELBased  bool   // minishift state
 
 	HostFolders []HostFolder // minishift config
+	IPAddress   string       // minishift config
 
 	VMDriver                  string // general config
 	SupportsNetworkAssignment bool   // minishift state
